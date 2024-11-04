@@ -171,6 +171,10 @@ func (r *RunningAggregator) Add(m telegraf.Metric) bool {
 }
 
 func (r *RunningAggregator) Push(acc telegraf.Accumulator) {
+    return Push(acc, time.Now())
+}
+
+func (r *RunningAggregator) PushTimed(acc telegraf.Accumulator, time TimeNow) {
 	r.Lock()
 	defer r.Unlock()
 
@@ -178,7 +182,7 @@ func (r *RunningAggregator) Push(acc telegraf.Accumulator) {
 	// we will have intentionally a long period, so
 	// metrics got stuck in meantime will not lost.
 	since := r.periodEnd
-	until := time.Now().Add(r.Config.Period)
+	until := TimeNow.Add(r.Config.Period)
 
 	// Truncate() eliminates the monotonic clock from the
 	// time which otherwise may lead to miscalculation of
@@ -191,7 +195,7 @@ func (r *RunningAggregator) Push(acc telegraf.Accumulator) {
 	if duration < r.Config.Period {
 		// In case of time drift backwards, a new
 		// period based on now is constructed.
-		since = time.Now()
+		since = timeNow
 		until = since.Add(r.Config.Period)
 	}
 
@@ -204,7 +208,7 @@ func (r *RunningAggregator) Push(acc telegraf.Accumulator) {
 	
 	r.UpdateWindow(since, until)
 
-	start := time.Now()
+	start := timeNow
 	r.Aggregator.Push(acc)
 	elapsed := time.Since(start)
 	r.PushTime.Incr(elapsed.Nanoseconds())

@@ -239,6 +239,43 @@ func TestAddDoesNotModifyMetric(t *testing.T) {
 	testutil.RequireMetricEqual(t, expected, m)
 }
 
+func TestPush(t *testing.T) {
+    a := &TestAggregator{}
+    ra := NewRunningAggregator(a, &AggregatorConfig{
+        Name: "TestRunningAggregator",
+        Filter: Filter{
+            NamePass: []string{"*"},
+        },
+        Period: time.Millisecond * 500,
+    })
+    require.NoError(t, ra.Config.Filter.Compile())
+    acc := testutil.Accumulator{}
+
+    now := time.Date(2024, 11, 4, 12, 00, 00, 0, time.UTC)
+    ra.UpdateWindow(now, now.Add(ra.Config.Period))
+
+    m := testutil.MustMetric("RITest",
+        map[string]string{},
+        map[string]interface{}{
+            "value": int64(101),
+        },
+        time.Now().Add(time.Millisecond*150),
+        telegraf.Untyped)
+    require.False(t, ra.Add(m))
+
+    // time drift forward (5h)
+    now = time.Date(2024, 11, 4, 17, 00, 00, 0, time.UTC)
+    ra.PushTimed(&acc, now)
+    require.Equal(t, time.Date(2024, 11, 4, 12, 0, 0, 500000000, time.UTC), ra.periodStart)
+    require.Equal(t, time.Date(2024, 11, 4, 17, 0, 0, 500000000, time.UTC), ra.periodEnd)
+
+    // time drift back (-2h)
+    now = time.Date(2024, 11, 4, 15, 00, 00, 0, time.UTC)
+    ra.PushTimed(&acc, now)
+    require.Equal(t, time.Date(2024, 11, 4, 15, 0, 0, 0, time.UTC), ra.periodStart)
+    require.Equal(t, time.Date(2024, 11, 4, 15, 0, 0, 500000000, time.UTC), ra.periodEnd)
+}
+
 type TestAggregator struct {
 	sum int64
 }
