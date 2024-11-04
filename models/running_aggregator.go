@@ -208,7 +208,7 @@ func (r *RunningAggregator) PushTimed(acc telegraf.Accumulator, timeNow time.Tim
 	
 	r.UpdateWindow(since, until)
 
-	start := timeNow
+	start := time.Now()
 	r.Aggregator.Push(acc)
 	elapsed := time.Since(start)
 	r.PushTime.Incr(elapsed.Nanoseconds())
