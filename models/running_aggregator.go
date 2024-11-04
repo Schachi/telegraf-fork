@@ -159,6 +159,8 @@ func (r *RunningAggregator) Add(m telegraf.Metric) bool {
 	r.Lock()
 	defer r.Unlock()
 
+	r.log.Debugf("add metric [metric: %s grace: %s delay: %s start: %s end: %s]", m.Time(), -r.Config.Grace, r.Config.Delay, r.periodStart, r.periodEnd)
+	
 	if m.Time().Before(r.periodStart.Add(-r.Config.Grace)) || m.Time().After(r.periodEnd.Add(r.Config.Delay)) {
 		r.log.Debugf("Metric is outside aggregation window; discarding. %s: m: %s e: %s g: %s",
 			m.Time(), r.periodStart, r.periodEnd, r.Config.Grace)
@@ -174,8 +176,34 @@ func (r *RunningAggregator) Push(acc telegraf.Accumulator) {
 	r.Lock()
 	defer r.Unlock()
 
+	// In case of time drift forward (e.g. after sleep)
+	// we will have intentionally a long period, so
+	// metrics got stuck in meantime will not lost.
 	since := r.periodEnd
-	until := r.periodEnd.Add(r.Config.Period)
+	until := time.Now().Add(r.Config.Period)
+
+	// Truncate() eliminates the monotonic clock from the
+	// time which otherwise may lead to miscalculation of
+	// the duration. We want to calculate the duration
+	// based on the wall clock time. The check, if a metric
+	// is discarded or not, ist based on the wall clock
+	// time.
+	duration := until.Truncate(-1).Sub(since.Truncate(-1))
+
+	if duration < r.Config.Period {
+		// In case of time drift backwards, a new
+		// period based on now is constructed.
+		since = time.Now()
+		until = since.Add(r.Config.Period)
+	}
+
+	// Note:
+	// If the time drifted out of the merge window
+	// and a metric with that new time is pushed and
+	// the merge window was not yet adjusted, this
+	// metric will discarded anyway. There is no way
+	// to prevent this :-(
+
 	r.UpdateWindow(since, until)
 
 	start := time.Now()
