@@ -1,7 +1,6 @@
 package models
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -253,7 +252,6 @@ func TestPush(t *testing.T) {
 	acc := testutil.Accumulator{}
 
 	now := time.Date(2024, 11, 4, 12, 00, 00, 0, time.UTC)
-	fmt.Printf("Now1: %s\n", time.Now())
 	ra.UpdateWindow(now, now.Add(ra.Config.Period))
 
 	m := testutil.MustMetric("RITest",
