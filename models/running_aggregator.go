@@ -171,10 +171,10 @@ func (r *RunningAggregator) Add(m telegraf.Metric) bool {
 }
 
 func (r *RunningAggregator) Push(acc telegraf.Accumulator) {
-    return Push(acc, time.Now())
+    r.PushTimed(acc, time.Now())
 }
 
-func (r *RunningAggregator) PushTimed(acc telegraf.Accumulator, time TimeNow) {
+func (r *RunningAggregator) PushTimed(acc telegraf.Accumulator, timeNow time.Time) {
 	r.Lock()
 	defer r.Unlock()
 
@@ -182,7 +182,7 @@ func (r *RunningAggregator) PushTimed(acc telegraf.Accumulator, time TimeNow) {
 	// we will have intentionally a long period, so
 	// metrics got stuck in meantime will not lost.
 	since := r.periodEnd
-	until := TimeNow.Add(r.Config.Period)
+	until := timeNow.Add(r.Config.Period)
 
 	// Truncate() eliminates the monotonic clock from the
 	// time which otherwise may lead to miscalculation of
